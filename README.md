@@ -6,6 +6,9 @@ mpv's powerful playback capabilities.
 
 Celluloid Twin is an old version of Cellululoid, which is not Libadwaita and uses GTK themes, the 0.21 version.
 
+![Snapshot_2025-05-29_03-25-41](https://github.com/user-attachments/assets/18ad8a3b-66f5-457d-ae6f-e1b37d481cde)
+
+
 ## Dependencies
 
 - appstream-glib<sup>[[1]](#note1)</sup> (build)
