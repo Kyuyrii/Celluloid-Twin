@@ -1,0 +1,206 @@
+name: celluloid-twin
+base: core24
+version: '0.21'
+adopt-info: celluloid
+grade: stable
+confinement: strict
+compression: lzo
+license: GPL-3.0-or-later
+assumes:
+  - snapd2.62 #shmem plug needs snapd 2.54+, taking 2.62 for convenience.
+platforms:
+  amd64:
+
+environment:
+  PYTHONPATH: ${SNAP}/lib/python3.12/site-packages
+
+slots:
+  celluloid:
+    interface: dbus
+    bus: session
+    name: io.github.celluloid_player.Celluloid
+  mpris:
+    name: Celluloid
+
+plugs:
+  shmem:
+    interface: shared-memory
+    private: true
+
+apps:
+  celluloid:
+    command: usr/bin/celluloid
+    extensions: [gnome]
+    common-id: io.github.celluloid_player.Celluloid
+    desktop: usr/share/applications/io.github.celluloid_player.Celluloid.desktop
+    plugs:
+      - home
+      - audio-playback
+      - network
+      - network-bind
+      - network-status
+      - removable-media
+      - unity7
+      - screen-inhibit-control
+      - shmem
+    slots:
+      - mpris
+
+parts:
+  ffmpeg:
+    plugin: autotools
+    source: https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.gz
+    autotools-configure-parameters:
+      - --prefix=/usr
+      - --libdir=/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      - --disable-debug
+      - --disable-doc
+      - --disable-static
+      - --enable-gpl
+      - --enable-shared
+      - --disable-ffplay
+      - --disable-devices
+      - --enable-gnutls
+      - --enable-libmp3lame
+      - --enable-libvorbis
+      - --enable-libdav1d
+      - --enable-libopus
+      - --enable-libx264
+      - --enable-libx265
+      - --enable-libvpx
+      - --enable-libass
+      - --enable-libaom
+      - --enable-libfdk-aac
+      - --enable-nonfree
+      #- --enable-cuda-nvcc
+      #- --enable-libnpp
+    build-packages:
+      - nasm
+      - libmp3lame-dev
+      - libvorbis-dev
+      - libopus-dev
+      - libx264-dev
+      - libx265-dev
+      - libnuma-dev
+      - libvpx-dev
+      - libdav1d-dev
+      - libass-dev
+      - libaom-dev
+      - libfdk-aac-dev
+      #- libffmpeg-nvenc-dev
+      #- nvidia-cuda-toolkit-gcc
+    prime:
+      - -usr/share/doc
+      - -usr/share/man
+      - -usr/share/ffmpeg/examples
+      - -usr/include
+      - -usr/lib/*/pkgconfig
+
+  mpv:
+    source: https://github.com/mpv-player/mpv.git
+    source-tag: 'v0.38.0'
+    after: [ffmpeg]
+    plugin: meson
+    meson-parameters:
+      - -Dprefix=/usr
+      - -Dbuildtype=release
+      - -Dlibmpv=true
+      - -Dx11=enabled
+      - -Dwayland=enabled
+      - -Dpipewire=disabled
+      - -Dalsa=disabled
+      - -Djack=disabled
+      - -Dsndio=disabled
+      - -Ddrm=enabled
+      - -Dsdl2-audio=disabled
+      - -Dmanpage-build=disabled
+      - -Dshaderc=disabled
+    build-packages:
+      - cmake
+      - libjpeg-turbo8-dev
+      - libxss-dev
+      - libxpresent-dev
+      - liblua5.2-dev
+      - libplacebo-dev
+      - libvdpau-dev
+      - libxv-dev
+    prime:
+      - -usr/share/help
+      - -usr/share/icons
+      - -usr/share/applications
+      - -usr/share/doc
+      - -usr/share/metainfo
+      - -usr/share/bash-completion
+      - -usr/share/zsh
+      - -usr/bin
+      - -usr/include
+      - -usr/lib/*/pkgconfig
+
+  celluloid:
+    source: https://github.com/Kyuyrii/Celluloid-Twin.git
+    after: [mpv]
+    plugin: meson
+    parse-info: [usr/share/metainfo/io.github.celluloid_player.Celluloid.appdata.xml]
+    meson-parameters:
+      - -Dprefix=/usr
+    override-pull: |
+      craftctl default
+      craftctl set version=$(git describe --tags --abbrev=0 | cut -c 2-)
+      sed -e 's|Icon=io.github.celluloid_player.Celluloid|Icon=${SNAP}/usr/share/icons/hicolor/scalable/apps/io.github.celluloid_player.Celluloid.svg|' -i data/io.github.celluloid_player.Celluloid.desktop.in
+    build-packages:
+      - libpciaccess-dev
+    prime:
+      - -usr/share/man
+      - -usr/include
+      - -usr/lib/*/pkgconfig
+
+  yt-dlp:
+    plugin: python
+    after: [celluloid]
+    source: https://github.com/yt-dlp/yt-dlp/releases/download/2025.05.22/yt-dlp.tar.gz
+    build-environment:
+      - PATH: ${CRAFT_PART_INSTALL}/bin:${PATH}
+      - PYTHONPATH: ""
+    prime:
+      - -bin/activate*
+      - -bin/Activate.ps1
+      - -bin/python*
+      - -bin/pip*
+      - -pyvenv.cfg
+      - -lib/**/setuptools*
+      - -lib/**/pip*
+      - -share/doc
+      - -share/man
+      - -include
+
+  deps:
+    plugin: nil
+    after: [yt-dlp]
+    stage-packages:
+      - libass9
+      - libxpresent1
+      - libxss1
+      - liblua5.2-0
+      - libdav1d7
+      - libnuma1
+      - libx264-164
+      - libx265-199
+      - libfdk-aac2
+      - libplacebo338
+      - libunibreak5
+      - libxv1
+      - libpciaccess0
+    prime:
+      - usr/lib/*/libass*
+      - usr/lib/*/libXss*
+      - usr/lib/*/libXpresent*
+      - usr/lib/*/liblua5.2.so*
+      - usr/lib/*/libdav1d*
+      - usr/lib/*/libnuma*
+      - usr/lib/*/libx264*
+      - usr/lib/*/libx265*
+      - usr/lib/*/libfdk*
+      - usr/lib/*/libplacebo*
+      - usr/lib/*/libunibreak*
+      - usr/lib/*/libXv*
+      - usr/lib/*/libpciaccess*
